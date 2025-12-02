@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Impostor — 3 jugadores (1 impostor)</title>
+<style>
+  :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+  body{margin:0;background:#0b1020;color:#e6eef8;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:18px;}
+  .app{width:100%;max-width:920px;background:linear-gradient(180deg,#0f1626 0%, #0b1020 100%);border-radius:12px;padding:18px;box-shadow:0 8px 30px rgba(2,6,23,.6);}
+  h1{margin:0 0 8px 0;font-size:20px;text-align:center}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}
+  button{background:#162235;color:#e6eef8;border:0;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600}
+  button.secondary{background:transparent;border:1px solid rgba(230,238,248,.08)}
+  .panel{background:rgba(255,255,255,.02);padding:14px;border-radius:10px;margin-bottom:12px}
+  .center{text-align:center}
+  .card{background:#0b1626;padding:20px;border-radius:10px;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+  .role{font-weight:800;font-size:18px}
+  .word{font-size:26px;font-weight:900;letter-spacing:.6px}
+  .small{font-size:13px;color:#9fb0d0}
+  .players-row{display:flex;gap:8px;justify-content:center;margin:12px 0}
+  .player-box{background:rgba(255,255,255,.02);padding:10px;border-radius:8px;min-width:88px;text-align:center}
+  .hidden{display:none}
+  .vote-btn{width:100%;padding:10px;border-radius:8px;border:0;margin-top:6px}
+  footer{font-size:12px;color:#8da0bf;text-align:center;margin-top:8px}
+  .danger{background:#7b2e2e}
+  .success{background:#1c6f3a}
+  @media (max-width:520px){ .word{font-size:20px} }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Impostor — 3 jugadores (1 impostor)</h1>
+
+  <div class="controls">
+    <button id="startRound">Iniciar nueva ronda</button>
+    <button id="resetUsed" class="secondary">Resetear palabras usadas</button>
+    <button id="showUsed" class="secondary">Ver # palabras usadas</button>
+    <div style="min-width:8px"></div>
+    <div class="small" id="statusText">Palabras disponibles: <span id="availableCount">0</span></div>
+  </div>
+
+  <div class="panel">
+    <div class="center small">Flujo: inicia ronda → cada jugador mira su tarjeta (pásalo) → votación → resultado</div>
+  </div>
+
+  <div id="viewArea" class="panel">
+    <div id="turnView" class="card center">
+      <div id="turnInstruction" class="small">Pulsa "Iniciar nueva ronda" para comenzar.</div>
+      <div id="playerCard" class="hidden">
+        <div class="small">Jugador <span id="currentPlayer">1</span></div>
+        <div id="roleText" class="role"></div>
+        <div id="wordText" class="word"></div>
+        <div class="small">Pasa el dispositivo al siguiente jugador.</div>
+      </div>
+      <div style="margin-top:10px">
+        <button id="btnReveal" class="secondary hidden">Ver carta</button>
+        <button id="btnNextPlayer" class="hidden">Siguiente jugador</button>
+      </div>
+    </div>
+
+    <div id="voteSection" class="hidden" style="margin-top:12px">
+      <div class="small center">Discusión terminada — Voten quién creen que es el impostor</div>
+      <div class="players-row" style="margin-top:8px">
+        <div class="player-box">Jugador 1 <div><button class="vote-btn" data-player="0">Votar 1</button></div></div>
+        <div class="player-box">Jugador 2 <div><button class="vote-btn" data-player="1">Votar 2</button></div></div>
+        <div class="player-box">Jugador 3 <div><button class="vote-btn" data-player="2">Votar 3</button></div></div>
+      </div>
+      <div class="center small" style="margin-top:8px">Votos recogidos: <span id="votesCount">0</span>/3</div>
+    </div>
+
+    <div id="resultSection" class="hidden" style="margin-top:12px">
+      <div class="card center">
+        <div id="resultTitle" class="role"></div>
+        <div class="small">Impostor real: Jugador <span id="realImpostor">?</span></div>
+        <div class="small">Palabras usadas esta ronda:</div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;justify-content:center">
+          <div class="player-box"><div class="small">Civiles</div><div id="wordCivil" class="word" style="font-size:18px"></div></div>
+          <div class="player-box"><div class="small">Impostor</div><div id="wordImpostor" class="word" style="font-size:18px"></div></div>
+        </div>
+        <div style="margin-top:12px">
+          <button id="continueBtn">Continuar (siguiente ronda)</button>
+          <button id="revealAllBtn" class="secondary">Revelar cartas ahora</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="panel small">
+    <div><strong>Instrucciones (rápido):</strong></div>
+    <ol>
+      <li>Pulsa <em>Iniciar nueva ronda</em>. Se elegirán 2 palabras nuevas (no repetidas).</li>
+      <li>Pasa el dispositivo a cada jugador y que pulse <em>Ver carta</em> — mostrará su rol y palabra. Después <em>Siguiente jugador</em>.</li>
+      <li>Cuando todos hayan visto su carta, voten (3 votos). Cuando se completen, se mostrará el resultado.</li>
+      <li>Si quieres reiniciar la lista de palabras usadas, usa "Resetear palabras usadas".</li>
+    </ol>
+  </div>
+
+  <footer>Hecho con ❤️ — Juego local sin servidores</footer>
+</div>
+
+<script>
+/* ======================
+   Lista LARGA de palabras
+   Nota: ambas palabras usadas por ronda se marcarán como 'usadas' y no volverán a salir
+   hasta que resetees con el botón.
+   ====================== */
+const WORDS = [
+"manzana","naranja","plátano","pera","uva","sandía","melón","cereza","fresa","kiwi","mango","piña","papaya","limón","lima",
+"tomate","zanahoria","lechuga","espinaca","pollo","carne","pescado","huevo","leche","queso","yogur","pan","arroz","frijol",
+"lenteja","maíz","avena","cacao","azúcar","sal","pimienta","café","té","miel","salsa","pizza","taco","arepa","hamburguesa",
+"helado","pastel","galleta","chocolate","vainilla","menta","nuez","almendra","maní","cacahuate","semilla","aceite","mantequilla",
+"jarabe","jugo","vino","cerveza","vodka","ron","whisky","champú","jabón","cepillo","peine","esmalte","pañal","toalla","almohada",
+"colchón","silla","mesa","sofá","cortina","lámpara","reloj","espejo","cuadro","flor","árbol","hoja","raíz","rama","bosque","playa",
+"océano","río","lago","montaña","valle","cueva","cueva","cielo","estrella","planeta","luna","sol","cometa","meteorito","nube",
+"lluvia","nieve","granizo","viento","tormenta","truenos","relámpago","arena","barro","piedra","roca","arena","hielo","fuego",
+"ceniza","humedad","aire","atmósfera","volcán","isla","península","puerto","barco","avión","tren","autobús","bicicleta","moto",
+"coche","camión","taxi","semáforo","estación","mapa","ruta","camino","puente","carretera","edificio","casa","departamento","puerta",
+"ventana","techo","pared","suelo","piso","escalera","ascensor","garaje","jardín","balcón","terraza","patio","cocina","baño","habitación",
+"oficina","escuela","universidad","biblioteca","laboratorio","museo","teatro","cine","concierto","musica","canción","guitarra","piano",
+"batería","violin","trompeta","saxofón","flauta","bajo","voz","artista","pintor","actor","directo","cineasta","novela","poema",
+"historia","cuento","personaje","personaje","superhéroe","villano","amigo","enemigo","familia","padre","madre","hermano","hermana",
+"hijo","hija","abuelo","abuela","tío","tía","primo","prima","vecino","maestro","alumno","doctor","enfermera","policía","bombero",
+"científico","ingeniero","programador","diseñador","chef","panadero","mecánico","jardinero","relojero","carpintero","pescador",
+"granjeros","campo","ciudad","pueblo","aldea","mercado","tienda","supermercado","restaurante","cafetería","bar","hotel","hostal",
+"playa","montañismo","sendero","campamento","aventura","misterio","secreto","puente","llave","caja","tesoro","mapa","moneda",
+"joya","anillo","collar","pulsera","medalla","trofeo","equipo","jugador","equipo","partido","gol","punto","victoria","derrota"
+];
+
+/* ======================
+   Estado del juego
+   ====================== */
+let usedWords = new Set(JSON.parse(localStorage.getItem('impostor_used') || '[]'));
+let availableWords = () => WORDS.filter(w => !usedWords.has(w));
+const players = [null, null, null]; // cada índice: {role: 'impostor'|'civil', word: '...'}
+let impostorIndex = null;
+let currentViewPlayer = 0; // 0..2
+let revealedCount = 0;
+let votes = [null, null, null]; // votos por jugador (índice votado)
+let votesCollected = 0;
+
+/* UI refs */
+const startBtn = document.getElementById('startRound');
+const resetBtn = document.getElementById('resetUsed');
+const showUsedBtn = document.getElementById('showUsed');
+const availableCount = document.getElementById('availableCount');
+const turnInstruction = document.getElementById('turnInstruction');
+const btnReveal = document.getElementById('btnReveal');
+const btnNextPlayer = document.getElementById('btnNextPlayer');
+const playerCard = document.getElementById('playerCard');
+const roleText = document.getElementById('roleText');
+const wordText = document.getElementById('wordText');
+const currentPlayerEl = document.getElementById('currentPlayer');
+const voteSection = document.getElementById('voteSection');
+const voteButtons = document.querySelectorAll('.vote-btn');
+const votesCountEl = document.getElementById('votesCount');
+const resultSection = document.getElementById('resultSection');
+const resultTitle = document.getElementById('resultTitle');
+const realImpostor = document.getElementById('realImpostor');
+const wordCivil = document.getElementById('wordCivil');
+const wordImpostor = document.getElementById('wordImpostor');
+const btnContinue = document.getElementById('continueBtn');
+const revealAllBtn = document.getElementById('revealAllBtn');
+
+/* actualizar contador disponible */
+function updateAvailable() {
+  availableCount.textContent = availableWords().length;
+}
+updateAvailable();
+
+/* utils */
+function randomInt(max){ return Math.floor(Math.random()*max); }
+
+/* iniciar ronda */
+startBtn.addEventListener('click', ()=>{
+  const avail = availableWords();
+  if (avail.length < 2) {
+    if (avail.length === 1) alert('Solo queda 1 palabra libre. Resetéalas o recarga para reiniciar.');
+    else alert('No quedan palabras disponibles. Presiona "Resetear palabras usadas" para reiniciar la lista.');
+    return;
+  }
+  // Elegir 2 palabras al azar (sin repetir)
+  // Tomamos un shuffle sencillo sobre índice
+  const i1 = randomInt(avail.length);
+  let i2 = randomInt(avail.length-1);
+  if (i2 >= i1) i2 = i2+1;
+  const wordA = avail[i1];
+  const wordB = avail[i2];
+
+  // Marcar usadas
+  usedWords.add(wordA);
+  usedWords.add(wordB);
+  localStorage.setItem('impostor_used', JSON.stringify(Array.from(usedWords)));
+
+  // Asignar roles: impostor diferente (1 impostor, 2 civiles)
+  impostorIndex = randomInt(3);
+  for(let i=0;i<3;i++){
+    if (i === impostorIndex) {
+      players[i] = {role:'impostor', word: ""}; // <--- AQUÍ SE QUITA LA PALABRA DEL IMPOSTOR (SE DEJA STRING VACÍO)
+    } else {
+      players[i] = {role:'civil', word: wordA};
+    }
+  }
+
+  // Reset view/votes
+  currentViewPlayer = 0;
+  revealedCount = 0;
+  votes = [null,null,null];
+  votesCollected = 0;
+  votesCountEl.textContent = votesCollected;
+
+  // UI: preparar para que el jugador 1 vea su carta
+  playerCard.classList.add('hidden');
+  document.getElementById('turnInstruction').textContent = 'Pásalo al Jugador 1 y pulsa "Ver carta".';
+  btnReveal.classList.remove('hidden');
+  btnNextPlayer.classList.add('hidden');
+  voteSection.classList.add('hidden');
+  resultSection.classList.add('hidden');
+  updateAvailable();
+});
+
+/* revelar carta del jugador actual */
+btnReveal.addEventListener('click', ()=>{
+  const p = players[currentViewPlayer];
+  if (!p) return;
+  // mostrar
+  currentPlayerEl.textContent = currentViewPlayer+1;
+  roleText.textContent = (p.role === 'impostor') ? 'IMPOSTOR' : 'Civil';
+  wordText.textContent = p.word;
+  // estilo para impostor/civil
+  roleText.style.color = (p.role === 'impostor') ? '#ffb3b3' : '#cfe5ff';
+  playerCard.classList.remove('hidden');
+  btnReveal.classList.add('hidden');
+  btnNextPlayer.classList.remove('hidden');
+  // increment revealedCount solo cuando se pulsa "Siguiente jugador"
+});
+
+/* siguiente jugador después de ver la carta */
+btnNextPlayer.addEventListener('click', ()=>{
+  revealedCount++;
+  currentViewPlayer++;
+  if (revealedCount >= 3) {
+    // todos vieron - ir a votación
+    playerCard.classList.add('hidden');
+    btnReveal.classList.add('hidden');
+    btnNextPlayer.classList.add('hidden');
+    document.getElementById('turnInstruction').textContent = 'Todos vieron sus cartas. Pasen a votar.';
+    voteSection.classList.remove('hidden');
+  } else {
+    // preparar vista para siguiente jugador
+    playerCard.classList.add('hidden');
+    btnReveal.classList.remove('hidden');
+    btnNextPlayer.classList.add('hidden');
+    document.getElementById('turnInstruction').textContent = 'Pásalo al Jugador ' + (currentViewPlayer+1) + ' y pulsa "Ver carta".';
+  }
+});
+
+/* votación */
+voteButtons.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const voter = votesCollected; // simple: recogemos votos en orden (0..2)
+    const votedIndex = parseInt(btn.dataset.player,10);
+    // evitar doble votar por el mismo votante
+    // buscamos primer slot null para asignar el voto
+    let slot = votes.findIndex(v=>v===null);
+    if (slot === -1) {
+      alert('Ya se recogieron los 3 votos.');
+      return;
+    }
+    votes[slot] = votedIndex;
+    votesCollected++;
+    votesCountEl.textContent = votesCollected;
+    // desactivar el botón pulsado brevemente para que no lo repitan
+    btn.disabled = true;
+    // cuando se recojan 3 votos, resolver
+    if (votesCollected >= 3) {
+      resolveRound();
+    }
+  });
+});
+
+/* resolver la ronda tras la votación */
+function resolveRound(){
+  voteSection.classList.add('hidden');
+  resultSection.classList.remove('hidden');
+
+  // Tally: cuál fue el jugador con más votos (simple mayoría)
+  const tally = {};
+  votes.forEach(v=>{
+    tally[v] = (tally[v]||0) + 1;
+  });
+  // escoger el con más votos, en empate el más pequeño índice
+  let top = null, topCount = -1;
+  Object.keys(tally).forEach(k=>{
+    const c = tally[k];
+    if (c > topCount){ top = Number(k); topCount = c; }
+    else if (c === topCount && Number(k) < top) top = Number(k);
+  });
+
+  // determinar ganador
+  const impostor = impostorIndex;
+  if (top === impostor) {
+    resultTitle.textContent = '¡Los civiles ganan! 🎉';
+    resultTitle.style.color = '#b8f0bb';
+  } else {
+    resultTitle.textContent = '¡El impostor gana! 🕵️‍♂️';
+    resultTitle.style.color = '#ffb3b3';
+  }
+  realImpostor.textContent = (impostor+1);
+  // mostrar palabras
+  const civilWord = players.find(p=>p.role==='civil').word;
+  // En el original era 'wordB', pero ahora wordB no está disponible directamente.
+  // Buscamos la palabra original del impostor antes de modificarla:
+  // Para obtener la palabra que *debía* tener el impostor (wordB) para mostrarla al final,
+  // necesitamos modificar la lógica de asignación/guardado.
+  // Si no modificamos el inicio de la ronda para guardar wordB, buscamos la palabra
+  // que NO es la de los civiles entre las usadas:
+  const usedArr = Array.from(usedWords);
+  const impWord = usedArr.find(w => w !== civilWord);
+  wordCivil.textContent = civilWord;
+  wordImpostor.textContent = impWord; // Muestra la palabra real del impostor para el resultado
+}
+
+/* continuar a siguiente ronda (simplemente oculta resultados; no crea nueva ronda hasta pulsar start) */
+btnContinue.addEventListener('click', ()=>{
+  resultSection.classList.add('hidden');
+  document.getElementById('turnInstruction').textContent = 'Pulsa "Iniciar nueva ronda" para otra ronda.';
+  updateAvailable();
+});
+
+/* revelar todas las cartas (por si quieren ver ahora) */
+revealAllBtn.addEventListener('click', ()=>{
+  // mostrar en resultado las cartas (ya se muestra)
+  alert('Se han revelado las palabras en la sección de resultados.');
+});
+
+/* resetear palabras usadas */
+resetBtn.addEventListener('click', ()=>{
+  if (!confirm('¿Seguro quieres resetear la lista de palabras usadas? Esto permitirá que las palabras vuelvan a salir.')) return;
+  usedWords = new Set();
+  localStorage.removeItem('impostor_used');
+  alert('Lista reseteada. Puedes iniciar nuevas rondas con todas las palabras disponibles.');
+  updateAvailable();
+});
+
+/* mostrar cantidad de usadas (info rápida) */
+showUsedBtn.addEventListener('click', ()=>{
+  alert('Palabras usadas hasta ahora: ' + Array.from(usedWords).join(', '));
+});
+
+/* al cargar, actualizar contador y deshabilitar vote buttons si no hay ronda */
+updateAvailable();
+
+/* protección mínima: si recargas estando en mitad de proceso, limpiamos estados que no aplican */
+window.addEventListener('load', ()=>{
+  // NO hacemos auto-start; solo actualizamos disponibles
+  updateAvailable();
+});
+</script>
+</body>
+</html>
